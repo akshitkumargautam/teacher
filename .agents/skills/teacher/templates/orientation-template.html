@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --net: #3b82f6;
+      --compute: #22c55e;
+      --storage: #f59e0b;
+      --config: #a855f7;
+      --orchestration: #ef4444;
+      --security: #06b6d4;
+    }
+
+    .category-net { border-left: 4px solid var(--net); background: color-mix(in srgb, var(--net) 8%, transparent); }
+    .category-compute { border-left: 4px solid var(--compute); background: color-mix(in srgb, var(--compute) 8%, transparent); }
+    .category-storage { border-left: 4px solid var(--storage); background: color-mix(in srgb, var(--storage) 8%, transparent); }
+    .category-config { border-left: 4px solid var(--config); background: color-mix(in srgb, var(--config) 8%, transparent); }
+    .category-orchestration { border-left: 4px solid var(--orchestration); background: color-mix(in srgb, var(--orchestration) 8%, transparent); }
+    .category-security { border-left: 4px solid var(--security); background: color-mix(in srgb, var(--security) 8%, transparent); }
+
+    .tag-net { background: var(--net); color: white; }
+    .tag-compute { background: var(--compute); color: white; }
+    .tag-storage { background: var(--storage); color: white; }
+    .tag-config { background: var(--config); color: white; }
+    .tag-orchestration { background: var(--orchestration); color: white; }
+    .tag-security { background: var(--security); color: white; }
+
+    .annotatable {
+      cursor: pointer;
+      border-bottom: 1px dashed color-mix(in srgb, var(--foreground) 30%, transparent);
+      transition: all 0.15s ease;
+    }
+    .annotatable:hover {
+      background: color-mix(in srgb, var(--primary) 15%, transparent);
+      border-bottom-color: var(--primary);
+    }
+    .annotatable.annotated {
+      background: color-mix(in srgb, var(--warning) 20%, transparent);
+      border-bottom: 2px solid var(--warning);
+    }
+
+    .annotation-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 9999px;
+      background: var(--warning);
+      color: #000;
+      cursor: pointer;
+      vertical-align: super;
+    }
+
+    .layer-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 4px;
+      transition: all 0.15s ease;
+    }
+    .layer-row:hover {
+      transform: translateX(4px);
+    }
+
+    .connection-line {
+      stroke: var(--muted-foreground);
+      stroke-width: 1.5;
+      stroke-dasharray: 4 3;
+    }
+
+    details summary {
+      cursor: pointer;
+      list-style: none;
+    }
+    details summary::before {
+      content: '▸ ';
+      display: inline;
+    }
+    details[open] summary::before {
+      content: '▾ ';
+    }
+
+    .annotation-panel {
+      position: fixed;
+      right: 0;
+      top: 0;
+      width: 320px;
+      height: 100%;
+      background: var(--card, #1a1a2e);
+      border-left: 1px solid var(--card-border, #333);
+      padding: 16px;
+      overflow-y: auto;
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      z-index: 100;
+    }
+    .annotation-panel.open {
+      transform: translateX(0);
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 40%, transparent); }
+      50% { box-shadow: 0 0 8px 4px color-mix(in srgb, var(--primary) 20%, transparent); }
+    }
+  </style>
+</head>
+<body class="bg-transparent text-[var(--foreground)] antialiased p-0 m-0">
+
+  <!-- ANNOTATION PANEL (slides in from right) -->
+  <div id="annotationPanel" class="annotation-panel">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-bold">📝 My Annotations</h3>
+      <button onclick="togglePanel()" class="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]">✕ Close</button>
+    </div>
+    <p class="text-xs text-[var(--muted-foreground)] mb-3">Click any <span class="border-b border-dashed border-[var(--muted-foreground)]">underlined term</span> to annotate it. Your annotations tell the teacher what to focus on.</p>
+    <div id="annotationList" class="space-y-2 text-xs"></div>
+    <div class="mt-4 pt-4 border-t border-[var(--card-border)]">
+      <button onclick="exportAnnotations()" class="w-full py-2 px-3 rounded-md text-xs font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition">
+        📋 Copy annotations for teacher
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div id="mainContent" class="max-w-3xl mx-auto px-4 py-6 space-y-6 transition-all">
+
+    <!-- FLOATING ANNOTATION BUTTON -->
+    <button onclick="togglePanel()" id="annotationToggle"
+      class="fixed bottom-4 right-4 z-50 py-2 px-4 rounded-full text-xs font-medium bg-[var(--primary)] text-[var(--primary-foreground)] shadow-lg hover:opacity-90 transition flex items-center gap-2"
+      style="animation: pulse-glow 2s ease-in-out infinite;">
+      📝 Annotations <span id="annotationCount" class="bg-[var(--warning)] text-black rounded-full px-1.5 py-0.5 text-[10px] font-bold">0</span>
+    </button>
+
+    <!-- HEADER -->
+    <div class="text-center space-y-2 pb-4 border-b border-[var(--card-border)]">
+      <div class="flex items-center justify-center gap-2 text-xs text-[var(--muted-foreground)]">
+        <span>ORIENTATION DOCUMENT</span>
+        <span>•</span>
+        <span id="docDate"><!-- filled by JS --></span>
+      </div>
+      <h1 id="docTitle" class="text-2xl font-bold"><!-- TEMPLATE: Topic Title --></h1>
+      <p id="docOneLiner" class="text-sm text-[var(--muted-foreground)] italic"><!-- TEMPLATE: One-line summary --></p>
+    </div>
+
+    <!-- SECTION 1: THE PROBLEM IT SOLVES -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-[var(--muted-foreground)] flex items-center gap-2">
+        <span class="text-base">🎯</span> The Problem It Solves
+      </h2>
+      <div id="problemSection" class="rounded-lg p-4 bg-[var(--card)] border border-[var(--card-border)] text-sm leading-relaxed">
+        <!-- TEMPLATE: Problem description -->
+      </div>
+    </section>
+
+    <!-- SECTION 2: IDENTITY CARD -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-[var(--muted-foreground)] flex items-center gap-2">
+        <span class="text-base">🪪</span> Identity Card
+      </h2>
+      <div class="rounded-lg bg-[var(--card)] border border-[var(--card-border)] overflow-hidden">
+        <table class="w-full text-xs">
+          <tbody id="identityCard">
+            <!-- TEMPLATE: Identity rows -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 3: SYSTEM MAP -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-[var(--muted-foreground)] flex items-center gap-2">
+        <span class="text-base">🗺️</span> Where It Fits — System Map
+      </h2>
+      <div id="systemMap" class="rounded-lg p-4 bg-[var(--card)] border border-[var(--card-border)] space-y-1">
+        <!-- TEMPLATE: Layer rows -->
+      </div>
+    </section>
+
+    <!-- SECTION 4: KEY CONCEPTS -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-[var(--muted-foreground)] flex items-center gap-2">
+        <span class="text-base">🧱</span> Key Concepts
+      </h2>
+      <div id="keyConcepts" class="space-y-2">
+        <!-- TEMPLATE: Concept cards -->
+      </div>
+    </section>
+
+    <!-- SECTION 5: CONNECTIONS -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-[var(--muted-foreground)] flex items-center gap-2">
+        <span class="text-base">🔗</span> How It Connects
+      </h2>
+      <div id="connections" class="rounded-lg p-4 bg-[var(--card)] border border-[var(--card-border)] space-y-3 text-sm">
+        <!-- TEMPLATE: Connection descriptions -->
+      </div>
+    </section>
+
+    <!-- SECTION 6: COMMON CONFUSIONS -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-[var(--muted-foreground)] flex items-center gap-2">
+        <span class="text-base">⚠️</span> Common Confusions
+      </h2>
+      <div id="confusions" class="space-y-2">
+        <!-- TEMPLATE: Confusion items -->
+      </div>
+    </section>
+
+    <!-- SECTION 7: LEARNING PATH -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-[var(--muted-foreground)] flex items-center gap-2">
+        <span class="text-base">🛤️</span> Suggested Learning Path
+      </h2>
+      <div id="learningPath" class="rounded-lg p-4 bg-[var(--card)] border border-[var(--card-border)]">
+        <!-- TEMPLATE: Learning path steps -->
+      </div>
+    </section>
+
+    <!-- LEGEND -->
+    <div class="pt-4 border-t border-[var(--card-border)]">
+      <div class="flex flex-wrap gap-3 text-[10px]">
+        <span class="font-bold text-[var(--muted-foreground)]">CATEGORIES:</span>
+        <span class="tag-net px-2 py-0.5 rounded-full">Networking</span>
+        <span class="tag-compute px-2 py-0.5 rounded-full">Compute</span>
+        <span class="tag-storage px-2 py-0.5 rounded-full">Storage</span>
+        <span class="tag-config px-2 py-0.5 rounded-full">Configuration</span>
+        <span class="tag-orchestration px-2 py-0.5 rounded-full">Orchestration</span>
+        <span class="tag-security px-2 py-0.5 rounded-full">Security</span>
+      </div>
+      <p class="text-[10px] text-[var(--muted-foreground)] mt-2">
+        💡 Click any <span class="border-b border-dashed">dashed-underlined term</span> to annotate it for deeper study. Use the 📝 button to view and export your annotations.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // ===== ANNOTATION SYSTEM =====
+    const annotations = {};
+    let panelOpen = false;
+
+    function togglePanel() {
+      panelOpen = !panelOpen;
+      document.getElementById('annotationPanel').classList.toggle('open', panelOpen);
+      document.getElementById('mainContent').style.marginRight = panelOpen ? '320px' : '0';
+    }
+
+    function updateAnnotationCount() {
+      const count = Object.keys(annotations).length;
+      document.getElementById('annotationCount').textContent = count;
+    }
+
+    function renderAnnotations() {
+      const list = document.getElementById('annotationList');
+      const entries = Object.entries(annotations);
+
+      if (entries.length === 0) {
+        list.innerHTML = '<p class="text-[var(--muted-foreground)] italic">No annotations yet. Click on underlined terms in the document to mark them for deeper study.</p>';
+        return;
+      }
+
+      list.innerHTML = entries.map(([term, data]) => `
+        <div class="p-2 rounded-md bg-[var(--content,var(--background))] border border-[var(--card-border)]">
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-bold text-[var(--warning)]">${term}</span>
+            <button onclick="removeAnnotation('${term.replace(/'/g, "\\'")}')" class="text-[var(--muted-foreground)] hover:text-[var(--error)]">✕</button>
+          </div>
+          <select onchange="updateAnnotationType('${term.replace(/'/g, "\\'")}', this.value)"
+            class="w-full mb-1 p-1 rounded text-[10px] bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)]">
+            <option value="what" ${data.type === 'what' ? 'selected' : ''}>❓ What exactly is this?</option>
+            <option value="use-no-understand" ${data.type === 'use-no-understand' ? 'selected' : ''}>🔧 I use it but don't understand it</option>
+            <option value="how-connect" ${data.type === 'how-connect' ? 'selected' : ''}>🔗 How does this connect to…?</option>
+            <option value="important-why" ${data.type === 'important-why' ? 'selected' : ''}>🤔 Seems important, don't know why</option>
+            <option value="go-deeper" ${data.type === 'go-deeper' ? 'selected' : ''}>🔬 Want to go deeper</option>
+          </select>
+          <textarea onchange="updateAnnotationNote('${term.replace(/'/g, "\\'")}', this.value)"
+            placeholder="Add a note (optional)…"
+            class="w-full p-1 rounded text-[10px] bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] resize-none"
+            rows="2">${data.note || ''}</textarea>
+        </div>
+      `).join('');
+    }
+
+    function addAnnotation(term) {
+      if (annotations[term]) {
+        removeAnnotation(term);
+        return;
+      }
+      annotations[term] = { type: 'what', note: '', timestamp: new Date().toISOString() };
+
+      // Mark the element
+      document.querySelectorAll('.annotatable').forEach(el => {
+        if (el.dataset.term === term) el.classList.add('annotated');
+      });
+
+      updateAnnotationCount();
+      renderAnnotations();
+      if (!panelOpen) togglePanel();
+    }
+
+    function removeAnnotation(term) {
+      delete annotations[term];
+      document.querySelectorAll('.annotatable').forEach(el => {
+        if (el.dataset.term === term) el.classList.remove('annotated');
+      });
+      updateAnnotationCount();
+      renderAnnotations();
+    }
+
+    function updateAnnotationType(term, type) {
+      if (annotations[term]) annotations[term].type = type;
+    }
+
+    function updateAnnotationNote(term, note) {
+      if (annotations[term]) annotations[term].note = note;
+    }
+
+    function exportAnnotations() {
+      const entries = Object.entries(annotations);
+      if (entries.length === 0) return;
+
+      const typeLabels = {
+        'what': 'What exactly is this?',
+        'use-no-understand': 'I use it but don\'t understand it',
+        'how-connect': 'How does this connect?',
+        'important-why': 'Seems important, don\'t know why',
+        'go-deeper': 'Want to go deeper'
+      };
+
+      let text = `I've annotated the following from the orientation doc. Please teach me these:\n\n`;
+      entries.forEach(([term, data], i) => {
+        text += `${i + 1}. **${term}** — ${typeLabels[data.type] || data.type}`;
+        if (data.note) text += ` (${data.note})`;
+        text += `\n`;
+      });
+
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('#annotationPanel button:last-child');
+        const orig = btn.textContent;
+        btn.textContent = '✅ Copied! Paste to your teacher';
+        setTimeout(() => btn.textContent = orig, 2000);
+      }).catch(() => {
+        // Fallback: show in a prompt
+        prompt('Copy this and paste to your teacher:', text);
+      });
+    }
+
+    // Set date
+    document.getElementById('docDate').textContent = new Date().toLocaleDateString('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric'
+    });
+
+    // Make all annotatable elements clickable
+    document.addEventListener('click', (e) => {
+      const el = e.target.closest('.annotatable');
+      if (el) addAnnotation(el.dataset.term);
+    });
+  </script>
+</body>
+</html>

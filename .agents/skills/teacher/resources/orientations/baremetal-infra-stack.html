@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --net: #3b82f6;
+      --compute: #22c55e;
+      --storage: #f59e0b;
+      --config: #a855f7;
+      --orchestration: #ef4444;
+      --security: #06b6d4;
+      --virt: #ec4899;
+    }
+
+    .cat-net { border-left: 4px solid var(--net); background: color-mix(in srgb, var(--net) 8%, transparent); }
+    .cat-compute { border-left: 4px solid var(--compute); background: color-mix(in srgb, var(--compute) 8%, transparent); }
+    .cat-storage { border-left: 4px solid var(--storage); background: color-mix(in srgb, var(--storage) 8%, transparent); }
+    .cat-config { border-left: 4px solid var(--config); background: color-mix(in srgb, var(--config) 8%, transparent); }
+    .cat-orchestration { border-left: 4px solid var(--orchestration); background: color-mix(in srgb, var(--orchestration) 8%, transparent); }
+    .cat-security { border-left: 4px solid var(--security); background: color-mix(in srgb, var(--security) 8%, transparent); }
+    .cat-virt { border-left: 4px solid var(--virt); background: color-mix(in srgb, var(--virt) 8%, transparent); }
+
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 9999px; font-size: 10px; font-weight: 600; color: white; }
+    .tag-net { background: var(--net); }
+    .tag-compute { background: var(--compute); }
+    .tag-storage { background: var(--storage); }
+    .tag-config { background: var(--config); }
+    .tag-orchestration { background: var(--orchestration); }
+    .tag-security { background: var(--security); }
+    .tag-virt { background: var(--virt); }
+
+    .annotatable {
+      cursor: pointer;
+      border-bottom: 1px dashed color-mix(in srgb, var(--foreground) 30%, transparent);
+      transition: all 0.15s ease;
+    }
+    .annotatable:hover {
+      background: color-mix(in srgb, var(--primary) 15%, transparent);
+      border-bottom-color: var(--primary);
+    }
+    .annotatable.annotated {
+      background: color-mix(in srgb, var(--warning) 20%, transparent);
+      border-bottom: 2px solid var(--warning);
+    }
+
+    .layer-row {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      margin-bottom: 3px;
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.15s ease;
+    }
+    .layer-row:hover { transform: translateX(4px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+
+    .layer-label {
+      width: 110px;
+      min-width: 110px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: white;
+      padding: 10px 6px;
+      text-align: center;
+    }
+
+    .layer-items {
+      flex: 1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      background: var(--card, #1a1a2e);
+      border: 1px solid var(--card-border, #333);
+    }
+
+    .layer-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      background: color-mix(in srgb, var(--foreground) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--foreground) 15%, transparent);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .layer-chip:hover {
+      background: color-mix(in srgb, var(--primary) 15%, transparent);
+      border-color: var(--primary);
+    }
+    .layer-chip .chip-icon { font-size: 13px; }
+    .layer-chip.highlight {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 1px var(--primary);
+      background: color-mix(in srgb, var(--primary) 12%, transparent);
+    }
+
+    .arrow-down {
+      text-align: center;
+      color: var(--muted-foreground);
+      font-size: 14px;
+      margin: -2px 0;
+      opacity: 0.5;
+    }
+
+    details summary { cursor: pointer; list-style: none; }
+    details summary::before { content: '▸ '; }
+    details[open] summary::before { content: '▾ '; }
+
+    .confusion-card {
+      border-radius: 8px;
+      border: 1px solid var(--card-border, #333);
+      overflow: hidden;
+    }
+    .confusion-wrong {
+      background: color-mix(in srgb, var(--error) 8%, transparent);
+      border-bottom: 1px solid var(--card-border, #333);
+      padding: 10px 14px;
+    }
+    .confusion-right {
+      background: color-mix(in srgb, var(--success) 8%, transparent);
+      padding: 10px 14px;
+    }
+
+    .path-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      position: relative;
+    }
+    .path-step::before {
+      content: '';
+      position: absolute;
+      left: 15px;
+      top: 32px;
+      bottom: -16px;
+      width: 2px;
+      background: color-mix(in srgb, var(--foreground) 15%, transparent);
+    }
+    .path-step:last-child::before { display: none; }
+    .path-num {
+      width: 30px;
+      height: 30px;
+      min-width: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: white;
+      position: relative;
+      z-index: 1;
+    }
+
+    .annotation-panel {
+      position: fixed; right: 0; top: 0; width: 320px; height: 100%;
+      background: var(--card, #1a1a2e); border-left: 1px solid var(--card-border, #333);
+      padding: 16px; overflow-y: auto; transform: translateX(100%);
+      transition: transform 0.25s ease; z-index: 100;
+    }
+    .annotation-panel.open { transform: translateX(0); }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 40%, transparent); }
+      50% { box-shadow: 0 0 8px 4px color-mix(in srgb, var(--primary) 20%, transparent); }
+    }
+  </style>
+</head>
+<body class="bg-transparent text-[var(--foreground)] antialiased p-0 m-0">
+
+  <!-- ANNOTATION PANEL -->
+  <div id="annotationPanel" class="annotation-panel">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-bold">📝 My Annotations</h3>
+      <button onclick="togglePanel()" class="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]">✕</button>
+    </div>
+    <p class="text-xs text-[var(--muted-foreground)] mb-3">Click any <span class="border-b border-dashed border-[var(--muted-foreground)]">underlined term</span> to annotate. Your annotations tell the teacher what to focus on.</p>
+    <div id="annotationList" class="space-y-2 text-xs"></div>
+    <div class="mt-4 pt-4 border-t border-[var(--card-border)]">
+      <button onclick="exportAnnotations()" class="w-full py-2 px-3 rounded-md text-xs font-medium bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition">
+        📋 Copy annotations for teacher
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="mainContent" class="max-w-3xl mx-auto px-4 py-6 space-y-6 transition-all">
+
+    <!-- FLOATING BTN -->
+    <button onclick="togglePanel()" id="annotationToggle"
+      class="fixed bottom-4 right-4 z-50 py-2 px-4 rounded-full text-xs font-medium bg-[var(--primary)] text-[var(--primary-foreground)] shadow-lg hover:opacity-90 transition flex items-center gap-2"
+      style="animation: pulse-glow 2s ease-in-out infinite;">
+      📝 Annotations <span id="annotationCount" class="bg-[var(--warning)] text-black rounded-full px-1.5 py-0.5 text-[10px] font-bold">0</span>
+    </button>
+
+    <!-- ═══════════════════ HEADER ═══════════════════ -->
+    <div class="text-center space-y-2 pb-4 border-b border-[var(--card-border)]">
+      <div class="text-xs text-[var(--muted-foreground)]">ORIENTATION DOCUMENT • Nov 2026</div>
+      <h1 class="text-2xl font-bold">Baremetal → Production Infrastructure</h1>
+      <p class="text-sm text-[var(--muted-foreground)] italic">Setting up company infrastructure on a physical server using Proxmox, containers, automation, and orchestration</p>
+      <div class="flex flex-wrap justify-center gap-2 pt-2">
+        <span class="tag tag-virt">Virtualization</span>
+        <span class="tag tag-net">Networking</span>
+        <span class="tag tag-compute">Containers</span>
+        <span class="tag tag-config">Automation</span>
+        <span class="tag tag-orchestration">Orchestration</span>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ PROBLEM ═══════════════════ -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-[var(--muted-foreground)] flex items-center gap-2">
+        <span>🎯</span> The Problem You're Solving
+      </h2>
+      <div class="rounded-lg p-4 bg-[var(--card)] border border-[var(--card-border)] text-sm leading-relaxed space-y-3">
+        <p>You have a <strong>physical computer</strong> (baremetal). You need it to run your company's staging and development environments — multiple isolated applications, databases, services, all reachable by your team, all reproducible.</p>
+        <p>Without any of the tools below, you'd be:</p>
+        <ul class="list-none space-y-1.5 pl-2">
+          <li>❌ Installing everything directly on one OS — conflicts, no isolation, one bad install breaks everything</li>
+          <li>❌ Manually SSHing in and running commands — no history, no reproducibility, "works on my machine" but not on staging</li>
+          <li>❌ Configuring network rules by hand — one typo in <span class="annotatable" data-term="iptables">iptables</span> and nothing can talk to anything</li>
+          <li>❌ No way to spin up a fresh environment — "just rebuild it from scratch" takes days</li>
+        </ul>
+        <p class="text-[var(--muted-foreground)] text-xs pt-2 border-t border-[var(--card-border)]">Each tool below solves one or more of these problems. The key insight: <strong>you're building layers of abstraction</strong>, each one making the layer above it simpler and more reliable.</p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ SYSTEM MAP ═══════════════════ -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-[var(--muted-foreground)] flex items-center gap-2">
+        <span>🗺️</span> Where Everything Fits — The Stack
+      </h2>
+      <p class="text-xs text-[var(--muted-foreground)]">Bottom = physical reality. Top = your running apps. Each layer relies on the one below it.</p>
+
+      <div class="space-y-0 rounded-lg overflow-hidden">
+        <!-- Layer 7: Your Apps -->
+        <div class="layer-row">
+          <div class="layer-label" style="background: var(--compute);">YOUR APPS</div>
+          <div class="layer-items">
+            <div class="layer-chip annotatable" data-term="Application Containers"><span class="chip-icon">📦</span> App containers (web, API, workers)</div>
+            <div class="layer-chip annotatable" data-term="Database Containers"><span class="chip-icon">🗄️</span> DB containers (Postgres, Redis)</div>
+            <div class="layer-chip annotatable" data-term="Service Containers"><span class="chip-icon">📨</span> Services (RabbitMQ, etc.)</div>
+          </div>
+        </div>
+
+        <div class="arrow-down">▼</div>
+
+        <!-- Layer 6: Orchestration -->
+        <div class="layer-row">
+          <div class="layer-label" style="background: var(--orchestration);">ORCHESTRATE</div>
+          <div class="layer-items">
+            <div class="layer-chip highlight annotatable" data-term="K3s"><span class="chip-icon">☸️</span> K3s</div>
+            <div class="layer-chip annotatable" data-term="Docker Compose"><span class="chip-icon">🐙</span> Docker Compose</div>
+            <div class="layer-chip annotatable" data-term="Container Scheduling"><span class="chip-icon">📋</span> Scheduling & scaling</div>
+          </div>
+        </div>
+
+        <div class="arrow-down">▼</div>
+
+        <!-- Layer 5: Container Runtime -->
+        <div class="layer-row">
+          <div class="layer-label" style="background: #059669;">CONTAINERS</div>
+          <div class="layer-items">
+            <div class="layer-chip annotatable" data-term="Docker"><span class="chip-icon">🐳</span> Docker (engine)</div>
+            <div class="layer-chip annotatable" data-term="containerd"><span class="chip-icon">⚙️</span> containerd</div>
+            <div class="layer-chip annotatable" data-term="Container Images"><span class="chip-icon">💿</span> Images & layers</div>
+            <div class="layer-chip annotatable" data-term="Docker Networking"><span class="chip-icon">🌐</span> Docker networking</div>
+          </div>
+        </div>
+
+        <div class="arrow-down">▼</div>
+
+        <!-- Layer 4: Automation -->
+        <div class="layer-row">
+          <div class="layer-label" style="background: var(--config);">AUTOMATE</div>
+          <div class="layer-items">
+            <div class="layer-chip annotatable" data-term="Ansible"><span class="chip-icon">📜</span> Ansible</div>
+            <div class="layer-chip annotatable" data-term="OpenTofu"><span class="chip-icon">🏗️</span> OpenTofu</div>
+            <div class="layer-chip annotatable" data-term="Infrastructure as Code"><span class="chip-icon">📄</span> IaC concept</div>
+          </div>
+        </div>
+
+        <div class="arrow-down">▼</div>
+
+        <!-- Layer 3: Virtual Machines -->
+        <div class="layer-row">
+          <div class="layer-label" style="background: var(--virt);">VMs</div>
+          <div class="layer-items">
+            <div class="layer-chip annotatable" data-term="Proxmox VE"><span class="chip-icon">🖥️</span> Proxmox VE</div>
+            <div class="layer-chip annotatable" data-term="QEMU/KVM"><span class="chip-icon">💻</span> QEMU/KVM</div>
+            <div class="layer-chip annotatable" data-term="LXC Containers"><span class="chip-icon">📦</span> LXC containers</div>
+            <div class="layer-chip annotatable" data-term="Virtual Machine"><span class="chip-icon">🗃️</span> VM concept</div>
+          </div>
+        </div>
+
+        <div class="arrow-down">▼</div>
+
+        <!-- Layer 2: Networking -->
+        <div class="layer-row">
+          <div class="layer-label" style="background: var(--net);">NETWORK</div>
+          <div class="layer-items">
+            <div class="layer-chip annotatable" data-term="IP Addressing"><span class="chip-icon">🏷️</span> IP addresses</div>
+            <div class="layer-chip annotatable" data-term="Subnets"><span class="chip-icon">🔲</span> Subnets</div>
+            <div class="layer-chip annotatable" data-term="DNS"><span class="chip-icon">📛</span> DNS</div>
+            <div class="layer-chip annotatable" data-term="Bridge Networking"><span class="chip-icon">🌉</span> Bridges</div>
+            <div class="layer-chip annotatable" data-term="VLAN"><span class="chip-icon">🏷️</span> VLANs</div>
+            <div class="layer-chip annotatable" data-term="Firewall"><span class="chip-icon">🛡️</span> Firewall</div>
+            <div class="layer-chip annotatable" data-term="NAT"><span class="chip-icon">🔀</span> NAT</div>
+            <div class="layer-chip annotatable" data-term="SSH"><span class="chip-icon">🔑</span> SSH</div>
+          </div>
+        </div>
+
+        <div class="arrow-down">▼</div>
+
+        <!-- Layer 1: OS -->
+        <div class="layer-row">
+          <div class="layer-label" style="background: #64748b;">OS</div>
+          <div class="layer-items">
+            <div class="layer-chip annotatable" data-term="Linux Kernel"><span class="chip-icon">🐧</span> Linux kernel</div>
+            <div class="layer-chip annotatable" data-term="Namespaces"><span class="chip-icon">📦</span> Namespaces</div>
+            <div class="layer-chip annotatable" data-term="cgroups"><span class="chip-icon">📊</span> cgroups</div>
+            <div class="layer-chip annotatable" data-term="systemd"><span class="chip-icon">⚙️</span> systemd</div>
+          </div>
+        </div>
+
+        <div class="arrow-down">▼</div>
+
+        <!-- Layer 0: Hardware -->
+        <div class="layer-row">
+          <div class="layer-label" style="background: #374151;">HARDWARE</div>
+          <div class="layer-items">
+            <div class="layer-chip"><span class="chip-icon">🖥️</span> Your baremetal PC</div>
+            <div class="layer-chip"><span class="chip-icon">🧠</span> CPU (with VT-x/VT-d)</div>
+            <div class="layer-chip"><span class="chip-icon">💾</span> RAM & storage</div>
+            <div class="layer-chip annotatable" data-term="NIC"><span class="chip-icon">🔌</span> NIC (network card)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ IDENTITY CARDS ═══════════════════ -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-[var(--muted-foreground)] flex items-center gap-2">
+        <span>🪪</span> Each Piece — What It Actually Is
+      </h2>
+      <p class="text-xs text-[var(--muted-foreground)]">Not just the name — the category, the type, and the one sentence that tells you what it fundamentally <em>is</em>.</p>
+
+      <div class="space-y-2">
+
+        <!-- Proxmox -->
+        <details class="rounded-lg border border-[var(--card-border)] overflow-hidden">
+          <summary class="p-3 bg-[var(--card)] text-sm font-medium flex items-center gap-2">
+            <span class="tag tag-virt">Virtualization</span>
+            <span class="annotatable" data-term="Proxmox VE">Proxmox VE</span>
+          </summary>
+          <div class="p-3 bg-[var(--card)] border-t border-[var(--card-border)] text-xs space-y-2 cat-virt">
+            <table class="w-full">
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">What is it?</td><td>A <strong>web-based management platform</strong> for running virtual machines and containers on a physical server</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Type</td><td><span class="annotatable" data-term="Hypervisor">Hypervisor</span> management UI + API (wraps <span class="annotatable" data-term="QEMU/KVM">QEMU/KVM</span> and <span class="annotatable" data-term="LXC Containers">LXC</span>)</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Runs as</td><td>A complete <span class="annotatable" data-term="Debian">Debian</span>-based OS you install on baremetal (replaces your existing OS)</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Why it exists</td><td>Without it, you'd manually manage QEMU/KVM via CLI — creating VMs by typing long commands, no dashboard, no snapshots UI, no clustering</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Analogy</td><td>If your server is a building, Proxmox is the <strong>building manager's office</strong> — it doesn't create the rooms (KVM does), but it lets you manage, monitor, and control them all from one place</td></tr>
+            </table>
+          </div>
+        </details>
+
+        <!-- Docker -->
+        <details class="rounded-lg border border-[var(--card-border)] overflow-hidden">
+          <summary class="p-3 bg-[var(--card)] text-sm font-medium flex items-center gap-2">
+            <span class="tag tag-compute">Container</span>
+            <span class="annotatable" data-term="Docker">Docker</span>
+          </summary>
+          <div class="p-3 bg-[var(--card)] border-t border-[var(--card-border)] text-xs space-y-2 cat-compute">
+            <table class="w-full">
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">What is it?</td><td>A <strong>tool for packaging and running applications in isolated environments</strong> (containers) that share the host OS kernel</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Type</td><td>Container engine (CLI + daemon). Docker the company makes the tool. The actual runtime underneath is <span class="annotatable" data-term="containerd">containerd</span></td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Runs as</td><td>A background <span class="annotatable" data-term="Daemon">daemon</span> (dockerd) you talk to via the <code>docker</code> CLI</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Why it exists</td><td>Before Docker: "it works on my machine" — your app depends on specific library versions, OS settings, file paths. Docker packages ALL of that into a single <span class="annotatable" data-term="Container Images">image</span> that runs identically everywhere</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Not a VM!</td><td>Containers are NOT virtual machines. They don't have their own kernel. They use <span class="annotatable" data-term="Namespaces">Linux namespaces</span> and <span class="annotatable" data-term="cgroups">cgroups</span> to <em>isolate</em> processes while sharing the same kernel</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Analogy</td><td>If a VM is a <strong>separate house</strong> (own foundation, walls, roof), a container is an <strong>apartment</strong> — isolated living space, but shares the building's plumbing and electricity (kernel)</td></tr>
+            </table>
+          </div>
+        </details>
+
+        <!-- Docker Networking -->
+        <details class="rounded-lg border border-[var(--card-border)] overflow-hidden">
+          <summary class="p-3 bg-[var(--card)] text-sm font-medium flex items-center gap-2">
+            <span class="tag tag-net">Networking</span>
+            <span class="annotatable" data-term="Docker Networking">Docker Networking</span>
+          </summary>
+          <div class="p-3 bg-[var(--card)] border-t border-[var(--card-border)] text-xs space-y-2 cat-net">
+            <table class="w-full">
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">What is it?</td><td>Docker's built-in system for <strong>letting containers talk to each other and to the outside world</strong></td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Type</td><td>Virtual networking layer (creates virtual <span class="annotatable" data-term="Bridge Networking">bridges</span>, <span class="annotatable" data-term="veth pair">veth pairs</span>, and <span class="annotatable" data-term="iptables">iptables rules</span> under the hood)</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Key modes</td><td><strong>bridge</strong> (default, isolated network per host), <strong>host</strong> (no isolation, container uses host's network directly), <strong>overlay</strong> (spans multiple hosts — used by K8s/Swarm), <strong>none</strong> (no networking)</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Why it exists</td><td>Containers need network isolation (your app's port 8080 shouldn't collide with another's), but also need to talk to each other and the internet. Docker networking creates virtual networks that handle this automatically</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Analogy</td><td>Each Docker network is like an <strong>internal office phone system</strong> — everyone inside can call each other by name, but calling the outside world goes through a central switchboard (<span class="annotatable" data-term="NAT">NAT</span>)</td></tr>
+            </table>
+          </div>
+        </details>
+
+        <!-- Ansible -->
+        <details class="rounded-lg border border-[var(--card-border)] overflow-hidden">
+          <summary class="p-3 bg-[var(--card)] text-sm font-medium flex items-center gap-2">
+            <span class="tag tag-config">Automation</span>
+            <span class="annotatable" data-term="Ansible">Ansible</span>
+          </summary>
+          <div class="p-3 bg-[var(--card)] border-t border-[var(--card-border)] text-xs space-y-2 cat-config">
+            <table class="w-full">
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">What is it?</td><td>A tool that <strong>automates the configuration of machines</strong> — installs software, edits config files, restarts services, all from one control machine</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Type</td><td>Configuration management / automation tool (agentless — uses <span class="annotatable" data-term="SSH">SSH</span> to reach target machines, no software to install on them)</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Runs as</td><td>A CLI tool on your machine. You write <span class="annotatable" data-term="YAML Playbook">YAML playbooks</span> describing what state you want, and Ansible makes it happen</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Why it exists</td><td>Without it: SSH into 10 machines, run the same 20 commands on each, hope you didn't typo on machine 7. With Ansible: write it once, run it everywhere, get the same result every time</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Key idea</td><td><span class="annotatable" data-term="Idempotency">Idempotent</span> — running a playbook twice gives the same result as running it once. It doesn't "install nginx again," it checks "is nginx installed?" and skips if yes</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Analogy</td><td>Ansible is like a <strong>recipe for your server</strong> — "ensure these ingredients are present, in these quantities, combined this way." You can hand the recipe to a new chef (new server) and get the same dish</td></tr>
+            </table>
+          </div>
+        </details>
+
+        <!-- OpenTofu -->
+        <details class="rounded-lg border border-[var(--card-border)] overflow-hidden">
+          <summary class="p-3 bg-[var(--card)] text-sm font-medium flex items-center gap-2">
+            <span class="tag tag-config">Automation</span>
+            <span class="annotatable" data-term="OpenTofu">OpenTofu</span>
+          </summary>
+          <div class="p-3 bg-[var(--card)] border-t border-[var(--card-border)] text-xs space-y-2 cat-config">
+            <table class="w-full">
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">What is it?</td><td>A tool for <strong>declaring and provisioning infrastructure resources</strong> — VMs, networks, storage, DNS records — from code</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Type</td><td><span class="annotatable" data-term="Infrastructure as Code">Infrastructure as Code</span> (IaC) provisioning tool. Open-source fork of <span class="annotatable" data-term="Terraform">Terraform</span></td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Runs as</td><td>A CLI tool. You write <code>.tf</code> files (HCL language) declaring what infra you want. It figures out the diff and makes changes</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">vs Ansible</td><td><strong>OpenTofu creates the infrastructure</strong> (VMs, networks). <strong>Ansible configures what's on it</strong> (installs software, writes configs). They're complementary, not competing</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Why it exists</td><td>Without it: click through Proxmox UI to create VMs, manually assign IPs, hope you documented what you did. With OpenTofu: your entire infrastructure is in Git, version-controlled, reviewable, reproducible</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Key idea</td><td><span class="annotatable" data-term="Declarative vs Imperative">Declarative</span> — you describe the <em>desired end state</em>, not the steps to get there. "I want 3 VMs" not "create VM 1, create VM 2, create VM 3"</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Analogy</td><td>If Ansible is a <strong>recipe</strong> (steps to follow), OpenTofu is an <strong>architect's blueprint</strong> — it shows what the building should look like, and the tool figures out how to build it</td></tr>
+            </table>
+          </div>
+        </details>
+
+        <!-- K3s -->
+        <details class="rounded-lg border border-[var(--card-border)] overflow-hidden">
+          <summary class="p-3 bg-[var(--card)] text-sm font-medium flex items-center gap-2">
+            <span class="tag tag-orchestration">Orchestration</span>
+            <span class="annotatable" data-term="K3s">K3s</span>
+          </summary>
+          <div class="p-3 bg-[var(--card)] border-t border-[var(--card-border)] text-xs space-y-2 cat-orchestration">
+            <table class="w-full">
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">What is it?</td><td>A <strong>lightweight <span class="annotatable" data-term="Kubernetes">Kubernetes</span> distribution</strong> — it manages your containers across machines: starts them, restarts them if they crash, routes traffic to them, scales them up/down</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Type</td><td>Container orchestrator (a simplified, single-binary packaging of Kubernetes)</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Runs as</td><td>A system service. One machine is the "server" (control plane), others are "agents" (workers). Single binary, starts in seconds</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">vs Docker Compose</td><td>Compose runs containers on <em>one machine</em>. K3s runs containers across <em>multiple machines</em>, handles failover, service discovery, rolling updates, and load balancing</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Why K3s over K8s</td><td>Full Kubernetes has ~20 components and needs serious resources. K3s bundles them into a single ~70MB binary. Perfect for edge/baremetal/resource-constrained setups</td></tr>
+              <tr><td class="font-bold pr-3 py-1 text-[var(--muted-foreground)]">Analogy</td><td>Docker Compose is a <strong>team lead</strong> managing one team in one room. K3s is an <strong>operations manager</strong> across the whole office — it knows where everyone sits, reassigns people if someone's sick, and directs visitors to the right desk</td></tr>
+            </table>
+          </div>
+        </details>
+
+        <!-- Networking Fundamentals -->
+        <details class="rounded-lg border border-[var(--card-border)] overflow-hidden">
+          <summary class="p-3 bg-[var(--card)] text-sm font-medium flex items-center gap-2">
+            <span class="tag tag-net">Networking</span>
+            <span>Core Networking Concepts</span>
+          </summary>
+          <div class="p-3 bg-[var(--card)] border-t border-[var(--card-border)] text-xs space-y-3 cat-net">
+            <div>
+              <strong class="text-[var(--foreground)]"><span class="annotatable" data-term="IP Addressing">IP Address</span></strong>
+              <span class="text-[var(--muted-foreground)]">— A unique number assigned to every device on a network, like a postal address for data. e.g., <code>192.168.1.100</code></span>
+            </div>
+            <div>
+              <strong class="text-[var(--foreground)]"><span class="annotatable" data-term="Subnets">Subnet</span></strong>
+              <span class="text-[var(--muted-foreground)]">— A subdivision of a network. <code>192.168.1.0/24</code> means "all 256 addresses from 192.168.1.0 to 192.168.1.255." The <code>/24</code> is the <span class="annotatable" data-term="Subnet Mask">subnet mask</span> — it defines the boundary</span>
+            </div>
+            <div>
+              <strong class="text-[var(--foreground)]"><span class="annotatable" data-term="DNS">DNS</span></strong>
+              <span class="text-[var(--muted-foreground)]">— The phone book of the internet. Translates names (<code>google.com</code>) to IP addresses (<code>142.250.80.46</code>). Your infra will have internal DNS too</span>
+            </div>
+            <div>
+              <strong class="text-[var(--foreground)]"><span class="annotatable" data-term="Bridge Networking">Bridge</span></strong>
+              <span class="text-[var(--muted-foreground)]">— A virtual network switch. When Proxmox or Docker creates a bridge, it's making a virtual "ethernet switch" that multiple VMs/containers can plug into</span>
+            </div>
+            <div>
+              <strong class="text-[var(--foreground)]"><span class="annotatable" data-term="VLAN">VLAN</span></strong>
+              <span class="text-[var(--muted-foreground)]">— Virtual LAN. Lets you split one physical network into separate logical networks. Your staging and dev environments can share the same cable but be isolated via VLANs</span>
+            </div>
+            <div>
+              <strong class="text-[var(--foreground)]"><span class="annotatable" data-term="NAT">NAT</span></strong>
+              <span class="text-[var(--muted-foreground)]">— Network Address Translation. Lets multiple devices with private IPs share one public IP to reach the internet. Your home router does this</span>
+            </div>
+            <div>
+              <strong class="text-[var(--foreground)]"><span class="annotatable" data-term="Firewall">Firewall</span></strong>
+              <span class="text-[var(--muted-foreground)]">— Rules that control what traffic is allowed in/out. Typically implemented via <span class="annotatable" data-term="iptables">iptables</span> or <span class="annotatable" data-term="nftables">nftables</span> on Linux</span>
+            </div>
+            <div>
+              <strong class="text-[var(--foreground)]"><span class="annotatable" data-term="SSH">SSH</span></strong>
+              <span class="text-[var(--muted-foreground)]">— Secure Shell. An encrypted protocol for remotely controlling machines via terminal. Ansible uses SSH under the hood. Uses <span class="annotatable" data-term="Public Key Cryptography">public/private key pairs</span> for authentication</span>
+            </div>
+            <div>
+              <strong class="text-[var(--foreground)]"><span class="annotatable" data-term="TCP/IP">TCP/IP</span></strong>
+              <span class="text-[var(--muted-foreground)]">— The fundamental protocols of the internet. TCP ensures reliable, ordered delivery of data. IP handles addressing and routing. Everything else is built on top of these</span>
+            </div>
+          </div>
+        </details>
+
+      </div>
+    </section>
+
+    <!-- ═══════════════════ CONNECTIONS ═══════════════════ -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-[var(--muted-foreground)] flex items-center gap-2">
+        <span>🔗</span> How They Connect — The Data Flow
+      </h2>
+      <div class="rounded-lg p-4 bg-[var(--card)] border border-[var(--card-border)] text-xs space-y-4">
+        <div class="space-y-2">
+          <p class="font-bold text-sm">When someone accesses your staging app, here's what happens:</p>
+          <div class="font-mono text-[10px] leading-relaxed space-y-1 pl-2 border-l-2 border-[var(--net)]">
+            <div>🌍 Browser request → <span class="annotatable" data-term="DNS">DNS</span> resolves hostname → arrives at your server's public IP</div>
+            <div>🛡️ → <span class="annotatable" data-term="Firewall">Firewall</span> checks if port is allowed</div>
+            <div>🔀 → <span class="annotatable" data-term="NAT">NAT</span> / port forwarding routes to correct VM</div>
+            <div>🌉 → <span class="annotatable" data-term="Bridge Networking">Bridge</span> in <span class="annotatable" data-term="Proxmox VE">Proxmox</span> delivers to VM's virtual NIC</div>
+            <div>🐳 → <span class="annotatable" data-term="Docker Networking">Docker bridge</span> inside VM routes to correct container</div>
+            <div>📦 → Container's app process receives the request</div>
+          </div>
+        </div>
+        <div class="pt-3 border-t border-[var(--card-border)] space-y-2">
+          <p class="font-bold text-sm">Your automation flow:</p>
+          <div class="font-mono text-[10px] leading-relaxed space-y-1 pl-2 border-l-2 border-[var(--config)]">
+            <div>🏗️ <span class="annotatable" data-term="OpenTofu">OpenTofu</span> → creates VMs in Proxmox (via Proxmox API)</div>
+            <div>📜 <span class="annotatable" data-term="Ansible">Ansible</span> → SSHes into VMs, installs Docker, configures networking</div>
+            <div>🐳 <span class="annotatable" data-term="Docker Compose">Docker Compose</span> / ☸️ <span class="annotatable" data-term="K3s">K3s</span> → deploys your app containers</div>
+          </div>
+        </div>
+        <p class="text-[var(--muted-foreground)] pt-2 border-t border-[var(--card-border)]">
+          <strong>Key insight:</strong> OpenTofu handles the "what infrastructure exists" question. Ansible handles the "what's installed on it" question. Docker/K3s handles the "what's running on it" question. Three separate concerns, three separate tools.
+        </p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ CONFUSIONS ═══════════════════ -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-[var(--muted-foreground)] flex items-center gap-2">
+        <span>⚠️</span> Common Confusions
+      </h2>
+      <div class="space-y-2">
+        <div class="confusion-card">
+          <div class="confusion-wrong text-xs">❌ <strong>"Docker containers are like lightweight VMs"</strong></div>
+          <div class="confusion-right text-xs">✅ Containers are <strong>isolated processes</strong>, not machines. They share the host kernel. A VM has its own entire OS. This matters for security, performance, and understanding what "isolation" actually means</div>
+        </div>
+        <div class="confusion-card">
+          <div class="confusion-wrong text-xs">❌ <strong>"OpenTofu and Ansible do the same thing"</strong></div>
+          <div class="confusion-right text-xs">✅ OpenTofu <strong>creates/destroys infrastructure</strong> (VMs, networks). Ansible <strong>configures existing machines</strong> (installs software, writes files). OpenTofu says "make a VM." Ansible says "on this VM, install Docker"</div>
+        </div>
+        <div class="confusion-card">
+          <div class="confusion-wrong text-xs">❌ <strong>"K3s replaces Docker"</strong></div>
+          <div class="confusion-right text-xs">✅ K3s <strong>uses</strong> a container runtime (containerd) under the hood. It doesn't replace Docker — it orchestrates containers. You can even use both: Docker for building images, K3s for running them</div>
+        </div>
+        <div class="confusion-card">
+          <div class="confusion-wrong text-xs">❌ <strong>"Networking is just IP addresses"</strong></div>
+          <div class="confusion-right text-xs">✅ IP addresses are one layer. You also need: routing (how packets find their way), DNS (name → IP), firewall (what's allowed), NAT (private → public), bridges (virtual switches), and VLANs (network segmentation). These are all separate concepts that work together</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ LEARNING PATH ═══════════════════ -->
+    <section class="space-y-2">
+      <h2 class="text-sm font-bold uppercase tracking-wide text-[var(--muted-foreground)] flex items-center gap-2">
+        <span>🛤️</span> Suggested Learning Path
+      </h2>
+      <p class="text-xs text-[var(--muted-foreground)]">Learn in this order — each layer depends on the one before it:</p>
+
+      <div class="rounded-lg p-4 bg-[var(--card)] border border-[var(--card-border)] space-y-4">
+        <div class="path-step">
+          <div class="path-num" style="background: var(--net);">1</div>
+          <div>
+            <div class="text-sm font-bold">Networking Fundamentals</div>
+            <div class="text-xs text-[var(--muted-foreground)]">IP addressing, subnets, DNS, TCP/IP, routing, NAT, firewalls. This is the foundation — <em>everything else sits on top of the network</em></div>
+          </div>
+        </div>
+        <div class="path-step">
+          <div class="path-num" style="background: var(--security);">2</div>
+          <div>
+            <div class="text-sm font-bold">SSH & Remote Access</div>
+            <div class="text-xs text-[var(--muted-foreground)]">How SSH works, key-based auth, ssh-agent, tunnels. You need this before Ansible can work</div>
+          </div>
+        </div>
+        <div class="path-step">
+          <div class="path-num" style="background: var(--virt);">3</div>
+          <div>
+            <div class="text-sm font-bold">Virtualization & Proxmox</div>
+            <div class="text-xs text-[var(--muted-foreground)]">What a hypervisor does, VMs vs containers, Proxmox networking (bridges/VLANs), storage, templates</div>
+          </div>
+        </div>
+        <div class="path-step">
+          <div class="path-num" style="background: #64748b;">4</div>
+          <div>
+            <div class="text-sm font-bold">Linux Fundamentals for Containers</div>
+            <div class="text-xs text-[var(--muted-foreground)]">Namespaces, cgroups, systemd. The kernel features that make containers possible</div>
+          </div>
+        </div>
+        <div class="path-step">
+          <div class="path-num" style="background: var(--compute);">5</div>
+          <div>
+            <div class="text-sm font-bold">Docker Deep Dive</div>
+            <div class="text-xs text-[var(--muted-foreground)]">Images, layers, volumes, Docker networking (bridge/host/overlay), Compose, multi-stage builds</div>
+          </div>
+        </div>
+        <div class="path-step">
+          <div class="path-num" style="background: var(--config);">6</div>
+          <div>
+            <div class="text-sm font-bold">Infrastructure as Code (OpenTofu + Ansible)</div>
+            <div class="text-xs text-[var(--muted-foreground)]">Declarative vs imperative, state management, playbooks, providers, the plan-apply cycle</div>
+          </div>
+        </div>
+        <div class="path-step">
+          <div class="path-num" style="background: var(--orchestration);">7</div>
+          <div>
+            <div class="text-sm font-bold">K3s / Kubernetes</div>
+            <div class="text-xs text-[var(--muted-foreground)]">Pods, services, ingress, deployments, namespaces. Only after you deeply understand containers and networking</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LEGEND -->
+    <div class="pt-4 border-t border-[var(--card-border)]">
+      <div class="flex flex-wrap gap-3 text-[10px]">
+        <span class="font-bold text-[var(--muted-foreground)]">CATEGORIES:</span>
+        <span class="tag tag-net">Networking</span>
+        <span class="tag tag-compute">Containers</span>
+        <span class="tag tag-storage">Storage</span>
+        <span class="tag tag-config">Automation</span>
+        <span class="tag tag-orchestration">Orchestration</span>
+        <span class="tag tag-security">Security</span>
+        <span class="tag tag-virt">Virtualization</span>
+      </div>
+      <p class="text-[10px] text-[var(--muted-foreground)] mt-2">
+        💡 Click any <span class="border-b border-dashed">dashed-underlined term</span> to annotate it for deeper study. Use the 📝 button to view and export your annotations.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // ===== ANNOTATION SYSTEM =====
+    const annotations = {};
+    let panelOpen = false;
+
+    function togglePanel() {
+      panelOpen = !panelOpen;
+      document.getElementById('annotationPanel').classList.toggle('open', panelOpen);
+      document.getElementById('mainContent').style.marginRight = panelOpen ? '320px' : '0';
+    }
+
+    function updateAnnotationCount() {
+      document.getElementById('annotationCount').textContent = Object.keys(annotations).length;
+    }
+
+    function renderAnnotations() {
+      const list = document.getElementById('annotationList');
+      const entries = Object.entries(annotations);
+      if (entries.length === 0) {
+        list.innerHTML = '<p class="text-[var(--muted-foreground)] italic">No annotations yet. Click on underlined terms to mark them for deeper study.</p>';
+        return;
+      }
+      const typeLabels = {
+        'what': '❓ What exactly is this?',
+        'use-no-understand': '🔧 I use it but don\'t understand it',
+        'how-connect': '🔗 How does this connect?',
+        'important-why': '🤔 Seems important, don\'t know why',
+        'go-deeper': '🔬 Want to go deeper'
+      };
+      list.innerHTML = entries.map(([term, data]) => `
+        <div class="p-2 rounded-md bg-[var(--content,var(--background))] border border-[var(--card-border)]">
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-bold text-[var(--warning)]">${term}</span>
+            <button onclick="removeAnnotation('${term.replace(/'/g, "\\'")}')" class="text-[var(--muted-foreground)] hover:text-[var(--error)]">✕</button>
+          </div>
+          <select onchange="updateAnnotationType('${term.replace(/'/g, "\\'")}', this.value)"
+            class="w-full mb-1 p-1 rounded text-[10px] bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)]">
+            ${Object.entries(typeLabels).map(([v,l]) => `<option value="${v}" ${data.type === v ? 'selected' : ''}>${l}</option>`).join('')}
+          </select>
+          <textarea onchange="updateAnnotationNote('${term.replace(/'/g, "\\'")}', this.value)"
+            placeholder="Add a note (optional)…"
+            class="w-full p-1 rounded text-[10px] bg-[var(--card)] border border-[var(--card-border)] text-[var(--foreground)] resize-none"
+            rows="2">${data.note || ''}</textarea>
+        </div>
+      `).join('');
+    }
+
+    function addAnnotation(term) {
+      if (annotations[term]) { removeAnnotation(term); return; }
+      annotations[term] = { type: 'what', note: '', timestamp: new Date().toISOString() };
+      document.querySelectorAll('.annotatable').forEach(el => {
+        if (el.dataset.term === term) el.classList.add('annotated');
+      });
+      updateAnnotationCount();
+      renderAnnotations();
+      if (!panelOpen) togglePanel();
+    }
+
+    function removeAnnotation(term) {
+      delete annotations[term];
+      document.querySelectorAll('.annotatable').forEach(el => {
+        if (el.dataset.term === term) el.classList.remove('annotated');
+      });
+      updateAnnotationCount();
+      renderAnnotations();
+    }
+
+    function updateAnnotationType(term, type) { if (annotations[term]) annotations[term].type = type; }
+    function updateAnnotationNote(term, note) { if (annotations[term]) annotations[term].note = note; }
+
+    function exportAnnotations() {
+      const entries = Object.entries(annotations);
+      if (entries.length === 0) return;
+      const typeLabels = {
+        'what': 'What exactly is this?',
+        'use-no-understand': 'I use it but don\'t understand it',
+        'how-connect': 'How does this connect?',
+        'important-why': 'Seems important, don\'t know why',
+        'go-deeper': 'Want to go deeper'
+      };
+      let text = `I've annotated the following from the orientation doc. Please teach me these:\n\n`;
+      entries.forEach(([term, data], i) => {
+        text += `${i + 1}. **${term}** — ${typeLabels[data.type] || data.type}`;
+        if (data.note) text += ` (${data.note})`;
+        text += `\n`;
+      });
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = '✅ Copied! Paste to your teacher';
+        setTimeout(() => btn.textContent = orig, 2000);
+      }).catch(() => prompt('Copy this and paste to your teacher:', text));
+    }
+
+    document.addEventListener('click', (e) => {
+      const el = e.target.closest('.annotatable');
+      if (el) addAnnotation(el.dataset.term);
+    });
+  </script>
+</body>
+</html>
